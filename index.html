@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steam Review Scraper</title>
+</head>
+<body>
+    <h1>Steam Review Scraper</h1>
+    <form id="scrapeForm">
+        <label for="game_id">Game ID:</label>
+        <input type="text" id="game_id" name="game_id" required>
+        <button type="button" onclick="startScraping()">Start Scraping</button>
+        <button type="button" onclick="stopScraping()">Stop Scraping</button>
+    </form>
+    <div id="logOutput"></div>
+
+    <script>
+        function startScraping() {
+            const gameId = document.getElementById('game_id').value;
+            const logOutput = document.getElementById('logOutput');
+            logOutput.innerHTML = '正在抓取评论...<br>';
+
+            fetch('/scrape', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `game_id=${gameId}`
+            })
+            .then(response => {
+                if (response.ok) {
+                    logOutput.innerHTML += '抓取完成，下载开始。<br>';
+                    return response.blob();
+                } else {
+                    logOutput.innerHTML += '抓取失败，请检查游戏ID是否正确。<br>';
+                }
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(new Blob([blob]));
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${gameId}_reviews.json`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            })
+            .catch(error => {
+                logOutput.innerHTML += `出现错误: ${error.message}<br>`;
+            });
+        }
+
+        function stopScraping() {
+            fetch('/stop_scrape', { method: 'POST' })
+            .then(response => {
+                if (response.ok) {
+                    document.getElementById('logOutput').innerHTML += '抓取已停止。<br>';
+                } else {
+                    document.getElementById('logOutput').innerHTML += '停止抓取失败。<br>';
+                }
+            })
+            .catch(error => {
+                document.getElementById('logOutput').innerHTML += `出现错误: ${error.message}<br>`;
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,66 +1,183 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Steam Review Scraper</title>
+    <title>Steam评论抓取器</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        form, div {
+            margin-bottom: 20px;
+        }
+        input, button {
+            padding: 5px 10px;
+        }
+        #progress-bar {
+            width: 100%;
+            background-color: #f0f0f0;
+            padding: 3px;
+            border-radius: 3px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, .2);
+        }
+        #progress-bar-fill {
+            display: block;
+            height: 22px;
+            background-color: #659cef;
+            border-radius: 3px;
+            transition: width 500ms ease-in-out;
+        }
+    </style>
 </head>
 <body>
-    <h1>Steam Review Scraper</h1>
+    <h1>Steam评论抓取器</h1>
+    
     <form id="scrapeForm">
-        <label for="game_id">Game ID:</label>
+        <label for="game_id">���入Steam游戏ID：</label>
         <input type="text" id="game_id" name="game_id" required>
-        <button type="button" onclick="startScraping()">Start Scraping</button>
-        <button type="button" onclick="stopScraping()">Stop Scraping</button>
+        <button type="submit" id="startButton">开始抓取</button>
+        <button type="button" id="stopButton" disabled>停止抓取</button>
     </form>
-    <div id="logOutput"></div>
+
+    <div id="progress-container" style="display: none;">
+        <div id="progress-bar">
+            <span id="progress-bar-fill" style="width: 0%;"></span>
+        </div>
+        <p id="progress-text">0%</p>
+    </div>
+
+    <h2>运行日志</h2>
+    <div id="logContainer" style="height: 200px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; margin-bottom: 20px;"></div>
+
+    <h2>可下载文件列表</h2>
+    <ul id="fileList">
+    {% for file in files %}
+        <li><a href="{{ url_for('download_file', filename=file) }}">{{ file }}</a></li>
+    {% endfor %}
+    </ul>
 
     <script>
-        function startScraping() {
-            const gameId = document.getElementById('game_id').value;
-            const logOutput = document.getElementById('logOutput');
-            logOutput.innerHTML = '正在抓取评论...<br>';
+        const scrapeForm = document.getElementById('scrapeForm');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const progressContainer = document.getElementById('progress-container');
+        const progressBarFill = document.getElementById('progress-bar-fill');
+        const progressText = document.getElementById('progress-text');
+        const logContainer = document.getElementById('logContainer');
+        const fileList = document.getElementById('fileList');
 
-            fetch('/scrape', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `game_id=${gameId}`
+        let isScrapingInProgress = false;
+
+        scrapeForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const gameId = document.getElementById('game_id').value;
+            startScraping(gameId);
+        });
+
+        stopButton.addEventListener('click', stopScraping);
+
+        function startScraping(gameId) {
+            isScrapingInProgress = true;
+            startButton.disabled = true;
+            stopButton.disabled = false;  // 确保这行代码存在
+            progressContainer.style.display = 'block';
+            logContainer.innerHTML = '';
+            
+            axios.post('/scrape', `game_id=${gameId}`, {
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'}
             })
-            .then(response => {
-                if (response.ok) {
-                    logOutput.innerHTML += '抓取完成，下载开始。<br>';
-                    return response.blob();
-                } else {
-                    logOutput.innerHTML += '抓取失败，请检查游戏ID是否正确。<br>';
-                }
+            .then(function (response) {
+                console.log(response.data);
+                updateProgress();
+                updateLogs();
             })
-            .then(blob => {
-                const url = window.URL.createObjectURL(new Blob([blob]));
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${gameId}_reviews.json`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            })
-            .catch(error => {
-                logOutput.innerHTML += `出现错误: ${error.message}<br>`;
+            .catch(function (error) {
+                console.error('Error:', error);
+                isScrapingInProgress = false;
+                startButton.disabled = false;
+                stopButton.disabled = true;
             });
         }
 
         function stopScraping() {
-            fetch('/stop_scrape', { method: 'POST' })
-            .then(response => {
-                if (response.ok) {
-                    document.getElementById('logOutput').innerHTML += '抓取已停止。<br>';
+            axios.post('/stop')
+            .then(function (response) {
+                console.log(response.data);
+                isScrapingInProgress = false;
+                startButton.disabled = false;
+                stopButton.disabled = true;
+                progressContainer.style.display = 'none';  // 隐藏进度条
+                logContainer.innerHTML += '<p>抓取已停止</p>';  // 添加停止日志
+            })
+            .catch(function (error) {
+                console.error('Error:', error);
+                alert('停止抓取失败，请重试');  // 添加错误提示
+            });
+        }
+
+        function updateProgress() {
+            if (!isScrapingInProgress) return;
+
+            axios.get('/progress')
+            .then(function (response) {
+                const progress = response.data.progress;
+                const isScrapingStillInProgress = response.data.is_scraping;
+
+                progressBarFill.style.width = `${progress}%`;
+                progressText.textContent = `${progress}%`;
+
+                if (isScrapingStillInProgress) {
+                    setTimeout(updateProgress, 1000);
                 } else {
-                    document.getElementById('logOutput').innerHTML += '停止抓取失败。<br>';
+                    isScrapingInProgress = false;
+                    startButton.disabled = false;
+                    stopButton.disabled = true;
+                    progressContainer.style.display = 'none';  // 隐藏进度条
+                    updateFileList();
                 }
             })
-            .catch(error => {
-                document.getElementById('logOutput').innerHTML += `出现错误: ${error.message}<br>`;
+            .catch(function (error) {
+                console.error('Error:', error);
+            });
+        }
+
+        function updateFileList() {
+            axios.get('/')
+            .then(function (response) {
+                const parser = new DOMParser();
+                const htmlDocument = parser.parseFromString(response.data, 'text/html');
+                const newFileList = htmlDocument.getElementById('fileList');
+                fileList.innerHTML = newFileList.innerHTML;
+            })
+            .catch(function (error) {
+                console.error('Error:', error);
+            });
+        }
+
+        function updateLogs() {
+            if (!isScrapingInProgress) return;
+
+            axios.get('/logs')
+            .then(function (response) {
+                const logContainer = document.getElementById('logContainer');
+                response.data.forEach(log => {
+                    const logEntry = document.createElement('p');
+                    logEntry.textContent = log;
+                    logContainer.appendChild(logEntry);
+                });
+                logContainer.scrollTop = logContainer.scrollHeight;
+                setTimeout(updateLogs, 1000);
+            })
+            .catch(function (error) {
+                console.error('Error fetching logs:', error);
             });
         }
     </script>
