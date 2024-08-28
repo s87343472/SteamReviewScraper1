@@ -38,7 +38,7 @@ def scrape_steam_reviews(game_id, progress_callback=None, log_callback=None, max
             
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             
-            wait_time = random.uniform(3, 5)
+            wait_time = random.uniform(5, 15)
             time.sleep(wait_time)
             
             try:
