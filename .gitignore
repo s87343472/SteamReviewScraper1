@@ -2,34 +2,4 @@ venv/
 *.pyc
 __pycache__/
 output/
-# Auto detect text files and perform LF normalization
-* text=auto
-# 虚拟环境
-venv/
-env/
-*.pyc
-
-# IDE 相关文件
-.vscode/
-.idea/
-
-# 临时文件
-__pycache__/
-*.py[cod]
-*$py.class
-
-# 系统文件
-.DS_Store
-Thumbs.db
-
-# 日志文件
-*.log
-
-# 输出文件夹（如果你不想上传生成的文件）
-output/
-
-# 其他不需要版本控制的文件
-*.bak
-*.swp
-*.swo
-cat .gitignore
+# 不要包含 templates/ 和 static/

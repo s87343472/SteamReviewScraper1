@@ -4,6 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Steam Review Scraper</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        #progressBar {
+            width: 100%;
+            background-color: #ddd;
+            margin-top: 10px;
+        }
+        #progress {
+            width: 0%;
+            height: 30px;
+            background-color: #4CAF50;
+            text-align: center;
+            line-height: 30px;
+            color: white;
+        }
+    </style>
 </head>
 <body>
     <h1>Steam Review Scraper</h1>
@@ -13,12 +29,18 @@
         <button type="button" onclick="startScraping()">Start Scraping</button>
         <button type="button" onclick="stopScraping()">Stop Scraping</button>
     </form>
+    <div id="progressBar">
+        <div id="progress"></div>
+    </div>
     <div id="logOutput"></div>
+    <div id="resultOutput"></div>
 
     <script>
-        function startScraping(gameId) {
+        function startScraping() {
+            var gameId = document.getElementById('game_id').value;
             console.log("开始抓取，游戏ID:", gameId);
-            document.getElementById('logOutput').innerHTML = '';  // 清空之前的日志.
+            document.getElementById('logOutput').innerHTML = '';  // 清空之前的日志
+            document.getElementById('resultOutput').innerHTML = '';  // 清空之前的结果
             axios.post('/scrape', `game_id=${gameId}`, {
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'}
             })
@@ -26,6 +48,7 @@
                 console.log("抓取请求成功:", response.data);
                 updateProgress();
                 updateLogs();
+                checkResult();
             })
             .catch(function (error) {
                 console.error("抓取请求失败:", error);
@@ -39,9 +62,10 @@
         }
 
         function stopScraping() {
-            fetch('/stop_scrape', { method: 'POST' })
-            .then(response => {
-                if (response.ok) {
+            fetch('/stop', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
                     document.getElementById('logOutput').innerHTML += '抓取已停止。<br>';
                 } else {
                     document.getElementById('logOutput').innerHTML += '停止抓取失败。<br>';
@@ -53,17 +77,18 @@
         }
 
         function updateProgress() {
-            console.log("请求更新进度");
             axios.get('/progress')
             .then(function (response) {
                 console.log("进度更新:", response.data);
-                // 更新进度条
+                let progressBar = document.getElementById('progress');
+                progressBar.style.width = response.data.progress + '%';
+                progressBar.innerHTML = response.data.progress + '%';
                 if (response.data.is_scraping) {
                     setTimeout(updateProgress, 1000);
                 }
             })
             .catch(function (error) {
-                console.error("获取进度失败:", error);
+                console.error("获取���度失败:", error);
             });
         }
 
@@ -82,9 +107,35 @@
             });
         }
 
+        function checkResult() {
+            axios.get('/result')
+            .then(function (response) {
+                if (response.data.status !== "pending") {
+                    document.getElementById('resultOutput').innerHTML = JSON.stringify(response.data);
+                    if (response.data.success) {
+                        let jsonLink = document.createElement('a');
+                        jsonLink.href = '/download/' + response.data.json_file.split('/').pop();
+                        jsonLink.innerHTML = 'Download JSON';
+                        document.getElementById('resultOutput').appendChild(jsonLink);
+
+                        let excelLink = document.createElement('a');
+                        excelLink.href = '/download/' + response.data.excel_file.split('/').pop();
+                        excelLink.innerHTML = 'Download Excel';
+                        document.getElementById('resultOutput').appendChild(excelLink);
+                    }
+                } else {
+                    setTimeout(checkResult, 1000);
+                }
+            })
+            .catch(function (error) {
+                console.error("获取结果失败:", error);
+            });
+        }
+
         // 确保这个函数在页面加载时就开始调用
         document.addEventListener('DOMContentLoaded', function() {
             updateLogs();
+            updateProgress();
         });
     </script>
 </body>

@@ -1,6 +1,6 @@
-# Steam 评论抓取工具v1.2
+# Steam 评论抓取工具
 
-这是一个用于抓取 Steam 游戏评论的工具。它使用 Python 和 Selenium 来自动化抓取过程,并提供了一个简单的 Web 界面来控制抓取任务。
+这是一个用于抓取 Steam 游戏评论的工具。它使用 Python、Selenium 和 Flask 来自动化抓取过程,并提供了一个简单的 Web 界面来控制抓取任务。
 
 ## 功能特点
 
@@ -51,6 +51,45 @@
 ## 贡献
 
 欢迎提交问题报告和改进建议。如果您想贡献代码,请先开 issue 讨论您的想法。
+
+## 许可证
+
+[MIT License](https://opensource.org/licenses/MIT)
+
+## 项目结构
+
+```
+SteamReviewScraper/
+│
+├── app.py # Flask 应用主文件
+├── scraper.py # 评论抓取核心逻辑
+├── requirements.txt # 项目依赖列表
+├── run_server.bat # Windows 批处理脚本，用于设置环境和启动服务器
+├── README.md # 项目说明文档
+├── .gitignore # Git 忽略文件配置
+├── templates/ # HTML 模板文件夹
+│ └── index.html # 主页面模板
+├── static/ # 静态文件文件夹（如果有的话）
+│ ├── css/
+│ ├── js/
+│ └── img/
+└── output/ # 输出文件夹，存储抓取结果
+
+## 注意事项
+
+- 确保您的网络连接稳定，以便能够访问 Steam 网站。
+- 抓取大量评论可能需要较长时间，请耐心等待。
+- 请遵守 Steam 的使用条款和服务条款。
+- 如果遇到 "无法加载更多评论" 的提示，可能是因为已经抓取了该游戏的所有可用评论。
+
+## 故障排除
+
+- 如果遇到 ChromeDriver 相关错误，请确保已安装正确版本的 ChromeDriver。
+- 如果依赖安装失败，请检查您的网络连接，或尝试手动安装 `requirements.txt` 中列出的包。
+
+## 贡献
+
+欢迎提交问题报告和改进建议。如果您想贡献代码，请先开 issue 讨论您的想法。
 
 ## 许可证
 
