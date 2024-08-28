@@ -16,37 +16,25 @@
     <div id="logOutput"></div>
 
     <script>
-        function startScraping() {
-            const gameId = document.getElementById('game_id').value;
-            const logOutput = document.getElementById('logOutput');
-            logOutput.innerHTML = '正在抓取评论...<br>';
-
-            fetch('/scrape', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `game_id=${gameId}`
+        function startScraping(gameId) {
+            console.log("开始抓取，游戏ID:", gameId);
+            document.getElementById('logOutput').innerHTML = '';  // 清空之前的日志
+            axios.post('/scrape', `game_id=${gameId}`, {
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'}
             })
-            .then(response => {
-                if (response.ok) {
-                    logOutput.innerHTML += '抓取完成，下载开始。<br>';
-                    return response.blob();
+            .then(function (response) {
+                console.log("抓取请求成功:", response.data);
+                updateProgress();
+                updateLogs();
+            })
+            .catch(function (error) {
+                console.error("抓取请求失败:", error);
+                if (error.response) {
+                    console.error("错误响应:", error.response.data);
+                    document.getElementById('logOutput').innerHTML += `错误: ${error.response.data.error}<br>`;
                 } else {
-                    logOutput.innerHTML += '抓取失败，请检查游戏ID是否正确。<br>';
+                    document.getElementById('logOutput').innerHTML += "抓取失败，请检查网络连接<br>";
                 }
-            })
-            .then(blob => {
-                const url = window.URL.createObjectURL(new Blob([blob]));
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${gameId}_reviews.json`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            })
-            .catch(error => {
-                logOutput.innerHTML += `出现错误: ${error.message}<br>`;
             });
         }
 
@@ -63,6 +51,41 @@
                 document.getElementById('logOutput').innerHTML += `出现错误: ${error.message}<br>`;
             });
         }
+
+        function updateProgress() {
+            console.log("请求更新进度");
+            axios.get('/progress')
+            .then(function (response) {
+                console.log("进度更新:", response.data);
+                // 更新进度条
+                if (response.data.is_scraping) {
+                    setTimeout(updateProgress, 1000);
+                }
+            })
+            .catch(function (error) {
+                console.error("获取进度失败:", error);
+            });
+        }
+
+        function updateLogs() {
+            axios.get('/logs')
+            .then(function (response) {
+                console.log("日志更新:", response.data);
+                let logOutput = document.getElementById('logOutput');
+                response.data.forEach(log => {
+                    logOutput.innerHTML += log + '<br>';
+                });
+                setTimeout(updateLogs, 1000);
+            })
+            .catch(function (error) {
+                console.error("获取日志失败:", error);
+            });
+        }
+
+        // 确保这个函数在页面加载时就开始调用
+        document.addEventListener('DOMContentLoaded', function() {
+            updateLogs();
+        });
     </script>
 </body>
 </html>

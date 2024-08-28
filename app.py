@@ -1,12 +1,12 @@
-from flask import Flask, request, render_template, send_from_directory, jsonify
-import os
-from scraper import scrape_steam_reviews, stop_scraping
-import re
-from datetime import datetime
+from scraper import scrape_steam_reviews
 import threading
 import queue
+from flask import Flask, request, render_template, send_from_directory, jsonify
+from flask_cors import CORS
+import os
 
 app = Flask(__name__)
+CORS(app)
 app.config['UPLOAD_FOLDER'] = 'output'
 
 scrape_thread = None
@@ -15,6 +15,8 @@ is_scraping = False
 result_queue = queue.Queue()
 log_queue = queue.Queue(maxsize=100)
 
+scrape_lock = threading.Lock()
+
 @app.route('/')
 def index():
     files = os.listdir(app.config['UPLOAD_FOLDER'])
@@ -22,27 +24,41 @@ def index():
 
 @app.route('/scrape', methods=['POST'])
 def scrape():
-    global scrape_thread, progress, is_scraping
+    global is_scraping, scrape_thread
     game_id = request.form['game_id']
-    if not game_id or not re.match(r'^\d+$', game_id):
-        return jsonify({"error": "请提供有效的Steam游戏ID（仅数字）"}), 400
-    
+    max_reviews = int(request.form.get('max_reviews', 1000000))
+    max_time = int(request.form.get('max_time', 3600))
+
     if is_scraping:
-        return jsonify({"error": "已有抓取任务正在进行中"}), 400
+        return jsonify({"error": "已经有一个抓取任务在进行中"}), 400
 
     is_scraping = True
-    progress = 0
-    
+
     def scrape_task():
-        global progress, is_scraping
+        global is_scraping
         try:
-            json_file, excel_file = scrape_steam_reviews(game_id, progress_callback, log_callback)
-            files = os.listdir(app.config['UPLOAD_FOLDER'])
-            result_queue.put({"success": "抓取完成", "files": files})
+            json_filename, excel_filename = scrape_steam_reviews(
+                game_id, 
+                progress_callback=update_progress, 
+                log_callback=update_log, 
+                max_reviews=max_reviews, 
+                max_time=max_time,
+                stop_check=lambda: not is_scraping
+            )
+            if json_filename and excel_filename:
+                result_queue.put({
+                    "success": "抓取完成",
+                    "json_file": json_filename,
+                    "excel_file": excel_filename
+                })
+            else:
+                result_queue.put({"error": "抓取失败，未生成文件"})
         except Exception as e:
-            result_queue.put({"error": f"抓取过程中出错：{str(e)}"})
+            update_log(f"抓取任务出错: {str(e)}")
+            result_queue.put({"error": f"抓取任务出错: {str(e)}"})
         finally:
             is_scraping = False
+            update_log("抓取任务结束")
 
     scrape_thread = threading.Thread(target=scrape_task)
     scrape_thread.start()
@@ -56,12 +72,12 @@ def get_progress():
 @app.route('/stop', methods=['POST'])
 def stop():
     global is_scraping
-    if is_scraping:
-        stop_scraping()
-        is_scraping = False
-        return jsonify({"success": "抓取任务已停止"})
-    else:
-        return jsonify({"error": "没有正在进行的抓取任务"}), 400
+    with scrape_lock:
+        if is_scraping:
+            is_scraping = False
+            return jsonify({"success": "抓取任务已停止"})
+        else:
+            return jsonify({"error": "没有正在进行的抓取任务"}), 400
 
 @app.route('/download/<filename>')
 def download_file(filename):
@@ -82,12 +98,12 @@ def get_logs():
         logs.append(log_queue.get())
     return jsonify(logs)
 
-def progress_callback(current, total):
+def update_progress(current, total):
     global progress
-    progress = int((current / total) * 100)
+    progress = int((current / total) * 100) if total > 0 else 0
 
-def log_callback(message):
-    log_queue.put(message)
+def update_log(message):
+    log_queue.put(message[:1000])
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5013)
