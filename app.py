@@ -47,7 +47,7 @@ def scrape():
             )
             if json_filename and excel_filename:
                 result_queue.put({
-                    "success": "抓取完成",
+                    "success": "抓取成功",
                     "json_file": json_filename,
                     "excel_file": excel_filename
                 })

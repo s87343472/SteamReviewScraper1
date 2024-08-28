@@ -18,7 +18,7 @@ def scrape_steam_reviews(game_id, progress_callback=None, log_callback=None, max
     url = f"https://steamcommunity.com/app/{game_id}/reviews/?browsefilter=toprated&snr=1_5_100010_&filterLanguage=all"
     
     chrome_options = Options()
-    chrome_options.add_argument("--headless")  # 在服务器上运行时使用无头模式
+    chrome_options.add_argument("--headless")  # 在服务器上运行时使用无头模式 # 在服务器上运行时使用无头模式
     driver = webdriver.Chrome(options=chrome_options)
     
     driver.get(url)

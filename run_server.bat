@@ -12,7 +12,7 @@ if not exist venv (
     )
 )
 
-REM 激活虚拟环境
+REM 激活虚拟环境1
 call venv\Scripts\activate.bat
 
 REM 检查是否需要安装依赖

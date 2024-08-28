@@ -18,7 +18,7 @@
     <script>
         function startScraping(gameId) {
             console.log("开始抓取，游戏ID:", gameId);
-            document.getElementById('logOutput').innerHTML = '';  // 清空之前的日志
+            document.getElementById('logOutput').innerHTML = '';  // 清空之前的日志.
             axios.post('/scrape', `game_id=${gameId}`, {
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'}
             })
