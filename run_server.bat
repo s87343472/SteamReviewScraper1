@@ -1,33 +1,24 @@
 @echo off
-setlocal enabledelayedexpansion
+cd /d %~dp0
+call venv\Scripts\activate
 
-REM 检查虚拟环境是否存在
-if not exist venv (
-    echo 创建虚拟环境...
-    python -m venv venv
-    if !errorlevel! neq 0 (
-        echo 创建虚拟环境失败,请确保已安装Python。
-        pause
-        exit /b 1
-    )
+REM 更新 pip
+python -m pip install --upgrade pip
+
+REM 安装依赖
+pip install -r requirements.txt
+if errorlevel 1 (
+    echo 安装依赖失败，尝试单独安装各个包
+    pip install selenium
+    pip install bs4
+    pip install pandas
+    pip install flask
+    pip install flask_cors
 )
 
-REM 激活虚拟环境1
-call venv\Scripts\activate.bat
-
-REM 检查是否需要安装依赖
-if not exist venv\Scripts\flask.exe (
-    echo 安装依赖...
-    pip install -r requirements.txt
-    if !errorlevel! neq 0 (
-        echo 安装依赖失败,请检查网络连接或requirements.txt文件。
-        pause
-        exit /b 1
-    )
-)
-
-REM 启动服务器
-echo 启动服务器...
+REM 运行应用
+echo 启动应用...
 python app.py
 
+REM 保持窗口打开
 pause

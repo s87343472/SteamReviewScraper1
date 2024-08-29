@@ -1,17 +1,58 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Steam Review Scraper</title>
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <title>Steam 游戏评论抓取器</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
-        #progressBar {
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            overflow: auto;
+            padding: 0 20px;
+        }
+        .card {
+            background: #fff;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        input[type="text"] {
             width: 100%;
-            background-color: #ddd;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+        button {
+            display: inline-block;
+            background: #333;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
             margin-top: 10px;
         }
+        button:hover {
+            background: #444;
+        }
         #progress {
+            width: 100%;
+            background-color: #ddd;
+            margin-top: 20px;
+        }
+        #progress-bar {
             width: 0%;
             height: 30px;
             background-color: #4CAF50;
@@ -19,124 +60,233 @@
             line-height: 30px;
             color: white;
         }
+        #log {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 20px;
+            background-color: #f9f9f9;
+        }
+        #fileList {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 20px;
+        }
+        #files {
+            list-style-type: none;
+            padding: 0;
+        }
+        #files li {
+            margin-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        #pagination {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #pagination button {
+            margin: 0 5px;
+            padding: 5px 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            cursor: pointer;
+        }
+        #pagination button:disabled {
+            background-color: #ddd;
+            cursor: default;
+        }
     </style>
 </head>
 <body>
-    <h1>Steam Review Scraper</h1>
-    <form id="scrapeForm">
-        <label for="game_id">Game ID:</label>
-        <input type="text" id="game_id" name="game_id" required>
-        <button type="button" onclick="startScraping()">Start Scraping</button>
-        <button type="button" onclick="stopScraping()">Stop Scraping</button>
-    </form>
-    <div id="progressBar">
-        <div id="progress"></div>
+    <div class="container">
+        <div class="card">
+            <h1>Steam 游戏评论抓取器</h1>
+            <input type="text" id="gameId" placeholder="输入游戏ID">
+            <button onclick="startScrape()">开始抓取</button>
+            <button onclick="stopScrape()" id="stopButton" style="display: none;">停止抓取</button>
+            <div id="progress" style="display: none;">
+                <div id="progress-bar">0%</div>
+            </div>
+            <div id="log"></div>
+        </div>
+        <div class="card">
+            <div id="fileList">
+                <h2>已抓取的文件</h2>
+                <ul id="files"></ul>
+                <div id="pagination"></div>
+            </div>
+        </div>
     </div>
-    <div id="logOutput"></div>
-    <div id="resultOutput"></div>
 
     <script>
-        function startScraping() {
-            var gameId = document.getElementById('game_id').value;
-            console.log("开始抓取，游戏ID:", gameId);
-            document.getElementById('logOutput').innerHTML = '';  // 清空之前的日志
-            document.getElementById('resultOutput').innerHTML = '';  // 清空之前的结果
-            axios.post('/scrape', `game_id=${gameId}`, {
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-            })
-            .then(function (response) {
-                console.log("抓取请求成功:", response.data);
-                updateProgress();
-                updateLogs();
-                checkResult();
-            })
-            .catch(function (error) {
-                console.error("抓取请求失败:", error);
-                if (error.response) {
-                    console.error("错误响应:", error.response.data);
-                    document.getElementById('logOutput').innerHTML += `错误: ${error.response.data.error}<br>`;
-                } else {
-                    document.getElementById('logOutput').innerHTML += "抓取失败，请检查网络连接<br>";
-                }
-            });
-        }
+        let scrapedGames = [];
+        let currentPage = 1;
+        let totalPages = 1;
+        let latestFiles = {};
 
-        function stopScraping() {
-            fetch('/stop', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    document.getElementById('logOutput').innerHTML += '抓取已停止。<br>';
-                } else {
-                    document.getElementById('logOutput').innerHTML += '停止抓取失败。<br>';
-                }
-            })
-            .catch(error => {
-                document.getElementById('logOutput').innerHTML += `出现错误: ${error.message}<br>`;
-            });
-        }
-
-        function updateProgress() {
-            axios.get('/progress')
-            .then(function (response) {
-                console.log("进度更新:", response.data);
-                let progressBar = document.getElementById('progress');
-                progressBar.style.width = response.data.progress + '%';
-                progressBar.innerHTML = response.data.progress + '%';
-                if (response.data.is_scraping) {
-                    setTimeout(updateProgress, 1000);
-                }
-            })
-            .catch(function (error) {
-                console.error("获取���度失败:", error);
-            });
-        }
-
-        function updateLogs() {
-            axios.get('/logs')
-            .then(function (response) {
-                console.log("日志更新:", response.data);
-                let logOutput = document.getElementById('logOutput');
-                response.data.forEach(log => {
-                    logOutput.innerHTML += log + '<br>';
+        function startScrape() {
+            const gameId = document.getElementById('gameId').value;
+            if (!gameId) {
+                alert('请输入游戏ID');
+                return;
+            }
+            
+            axios.post('/scrape', { game_id: gameId })
+                .then(function (response) {
+                    document.getElementById('progress').style.display = 'block';
+                    document.getElementById('stopButton').style.display = 'inline-block';
+                    addLog('开始抓取');
+                    checkProgress();
+                    checkResult();
+                })
+                .catch(function (error) {
+                    console.error(error);
+                    addLog('开始抓取失败', true);
                 });
-                setTimeout(updateLogs, 1000);
-            })
-            .catch(function (error) {
-                console.error("获取日志失败:", error);
-            });
+        }
+
+        function stopScrape() {
+            axios.post('/stop')
+                .then(function (response) {
+                    addLog('正在停止抓取');
+                    document.getElementById('stopButton').style.display = 'none';
+                })
+                .catch(function (error) {
+                    console.error(error);
+                    addLog('停止抓取失败', true);
+                });
+        }
+
+        function checkProgress() {
+            axios.get('/progress')
+                .then(function (response) {
+                    const progress = response.data.progress;
+                    const reviewsCount = response.data.reviews_count;
+                    document.getElementById('progress-bar').style.width = progress + '%';
+                    document.getElementById('progress-bar').innerHTML = progress.toFixed(2) + '%';
+                    addLog(`已抓取 ${reviewsCount} 条评论`);
+                    if (progress < 100) {
+                        setTimeout(checkProgress, 2000);  // 增加检查间隔到2秒
+                    } else {
+                        checkResult();
+                    }
+                })
+                .catch(function (error) {
+                    console.error('获取进度失败:', error);
+                    addLog('获取进度失败', true);
+                });
         }
 
         function checkResult() {
             axios.get('/result')
-            .then(function (response) {
-                if (response.data.status !== "pending") {
-                    document.getElementById('resultOutput').innerHTML = JSON.stringify(response.data);
-                    if (response.data.success) {
-                        let jsonLink = document.createElement('a');
-                        jsonLink.href = '/download/' + response.data.json_file.split('/').pop();
-                        jsonLink.innerHTML = 'Download JSON';
-                        document.getElementById('resultOutput').appendChild(jsonLink);
-
-                        let excelLink = document.createElement('a');
-                        excelLink.href = '/download/' + response.data.excel_file.split('/').pop();
-                        excelLink.innerHTML = 'Download Excel';
-                        document.getElementById('resultOutput').appendChild(excelLink);
+                .then(function (response) {
+                    if (response.data.status === "completed") {
+                        addLog('抓取完成');
+                        scrapedGames.push(response.data.game_id);
+                        checkFilesReady();
+                    } else if (response.data.status === "failed") {
+                        addLog('抓取失败: ' + response.data.error, true);
+                        resetUI();
+                    } else {
+                        setTimeout(checkResult, 2000);  // 增加检查间隔到2秒
                     }
-                } else {
-                    setTimeout(checkResult, 1000);
-                }
-            })
-            .catch(function (error) {
-                console.error("获取结果失败:", error);
-            });
+                })
+                .catch(function (error) {
+                    console.error("获取结果失败:", error);
+                    addLog('获取结果失败', true);
+                    resetUI();
+                });
         }
 
-        // 确保这个函数在页面加载时就开始调用
-        document.addEventListener('DOMContentLoaded', function() {
-            updateLogs();
-            updateProgress();
-        });
+        function checkFilesReady() {
+            axios.get('/files_status')
+                .then(function (response) {
+                    if (response.data.ready) {
+                        resetUI();
+                        loadFiles(1);  // 刷新文件列表
+                        addLog('文件已生成,可以在下方列表中下载');
+                    } else {
+                        setTimeout(checkFilesReady, 2000);  // 增加检查间隔到2秒
+                    }
+                })
+                .catch(function (error) {
+                    console.error("检查文件状态失败:", error);
+                    addLog('检查文件状态失败', true);
+                });
+        }
+
+        function resetUI() {
+            document.getElementById('progress').style.display = 'none';
+            document.getElementById('stopButton').style.display = 'none';
+        }
+
+        function addLog(message, isError = false) {
+            const log = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            if (isError) {
+                entry.style.color = 'red';
+            }
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function loadFiles(page = 1) {
+            fetch(`/files?page=${page}`)
+                .then(response => response.json())
+                .then(data => {
+                    const fileList = document.getElementById('files');
+                    fileList.innerHTML = '';
+                    
+                    data.files.forEach(file => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            <a href="/output/${encodeURIComponent(file.name)}" download>${file.name}</a>
+                            <br>
+                            <small>大小: ${(file.size / 1024).toFixed(2)} KB, 
+                            修改时间: ${new Date(file.modified * 1000).toLocaleString()}</small>
+                        `;
+                        fileList.appendChild(li);
+                    });
+
+                    currentPage = data.current_page;
+                    totalPages = data.total_pages;
+                    updatePagination();
+
+                    // 更新 latestFiles 对象
+                    latestFiles = data.files.reduce((acc, file) => {
+                        if (!acc[file.game_id] || file.modified > acc[file.game_id].modified) {
+                            acc[file.game_id] = file;
+                        }
+                        return acc;
+                    }, {});
+                })
+                .catch(error => console.error('Error loading files:', error));
+        }
+
+        function updatePagination() {
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = '';
+
+            if (totalPages > 1) {
+                for (let i = 1; i <= totalPages; i++) {
+                    const button = document.createElement('button');
+                    button.textContent = i;
+                    button.onclick = () => loadFiles(i);
+                    if (i === currentPage) {
+                        button.disabled = true;
+                    }
+                    pagination.appendChild(button);
+                }
+            }
+        }
+
+        // 页面加载时也调用 loadFiles
+        document.addEventListener('DOMContentLoaded', () => loadFiles(1));
     </script>
 </body>
 </html>
